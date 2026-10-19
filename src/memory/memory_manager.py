@@ -4,17 +4,24 @@ from custom_types.enums import Role
 
 class MemoryManager(ABC):
     def __init__(self, system_prompt: str):
-        self.system_prompt = {"role": Role.SYSTEM, "content": system_prompt}
+        self.system_prompt = system_prompt
         self.memory = []
 
     def add_msg(self, role: Role, content: str):
         self.memory.append({"role": role, "content": content})
         self._handle_memory()
 
-    def get_msgs(self):
-        return [self.system_prompt] + self.memory
-    
+    def _get_sys_prompt(self) -> list[dict]:
+        if not self.system_prompt:
+            return []
+        return [{"role": Role.SYSTEM, "content": self.system_prompt}]
+
+    def get_msgs(self) -> list[dict]:
+        return self._get_sys_prompt() + self.memory
+
     def print(self):
+        if self.system_prompt:
+            print({"role": Role.SYSTEM, "content": self.system_prompt})
         for e in self.memory:
             print(e)
 
@@ -31,16 +38,17 @@ class SlidingWindowMem(MemoryManager):
         super().__init__(system_prompt)
         self.max_user_messages = max_user_messages
 
-    def _get_active_window(self):
+    def _get_active_window(self) -> list[dict]:
         idx = 2 * max(0, (len(self.memory) + 1) // 2 - self.max_user_messages)
         return self.memory[idx:]
-    
+
     def _handle_memory(self):
         if len(self.memory) % 2 == 0:
             self.memory = self._get_active_window()
 
-    def get_msgs(self):
-        print("[SENT]:")
-        for e in self._get_active_window():
-            print(e)
-        return [self.system_prompt] + self._get_active_window()
+    def get_msgs(self) -> list[dict]:
+        window = self._get_active_window()
+        # print("[SENT]:")
+        # for e in window:
+        #     print(e)
+        return self._get_sys_prompt() + window

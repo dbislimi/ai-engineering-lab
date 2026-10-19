@@ -29,6 +29,6 @@ def load_config() -> AppConfig:
             max_retries=3,
         ),
         model=os.getenv("CHAT_MODEL", "qwen3.5:4b"),
-        system_prompt="",
+        system_prompt="If any of your previous responses ends with [INTERRUPTED BY USER], it means the user intentionally stopped the text generation.",
         extra_body={"reasoning_effort": reasoning_effort} if reasoning_effort else {},
     )
