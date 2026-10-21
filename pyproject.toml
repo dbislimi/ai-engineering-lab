@@ -3,7 +3,7 @@ name = "ai-engineering-lab"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = "==3.11.15"
+requires-python = "==3.12.3"
 dependencies = [
     "dotenv>=0.9.9",
     "openai>=3.31.0",

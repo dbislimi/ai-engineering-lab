@@ -1,13 +1,20 @@
-from memory.memory_manager import *
-from config import AppConfig
 import openai
 
-class ChatBot:
+from config import AppConfig
+from custom_types.enums import Memory, Role
+from memory.memory_manager import MemoryManager
+
+
+class Chat:
     def __init__(self, config: AppConfig, memory: MemoryManager):
         self.memory = memory
         self.config = config
-        
-    def _stream_reply(self, messages: list[dict]):
+        self.id = ""
+
+    def getId(self):
+        return self.id
+
+    def _stream_reply(self, messages: Memory):
         with self.config.complete(messages, stream=True) as stream:
             finish_reason = None
             yielded = False
@@ -26,8 +33,9 @@ class ChatBot:
             if finish_reason == "length":
                 print(" [truncated]", end="")
 
-
-    def _send_prompt(self, stream: bool = True):
+    def send_prompt(self, prompt: str, stream: bool = True) -> str:
+        if self.memory.add_msg(role=Role.USER, content=prompt):
+            self.id = prompt
         messages = self.memory.get_msgs()
         reply = ""
         try:
@@ -52,23 +60,11 @@ class ChatBot:
             print(f"\nError: {e}")
         return reply
 
-    def start_chat(self):
-        while True:
-            # self.memory.print()
-            try:
-                prompt = input("You: ").strip()
-            except (KeyboardInterrupt, EOFError):
-                break
-            if prompt.lower() in ["quit", "exit", "bye"]:
-                break
-            if not prompt:
-                continue
-            self.memory.add_msg(role=Role.USER, content=prompt)
-            print(f"{self.config.model}: ", end="")
-            reply = self._send_prompt()
-            if not reply:
-                self.memory.pop()
-                continue
-            self.memory.add_msg(role=Role.ASSISTANT, content=reply)
-            print()
-            
+    def print_chat(self):
+        for msg in self.memory.get_msgs():
+            role, content = msg.values()
+            # print(f"MSG: {msg}\nROLE: {role}\nCONTENT: {content}")
+            if role is Role.ASSISTANT:
+                print(f"{self.config.model}: {content}\n")
+            elif role is Role.USER:
+                print(f"You: {content}")
