@@ -1,14 +1,13 @@
-from config import AppConfig, load_config
-from custom_types.enums import Role
+from config import Config, load_config
 from interface.chat import Chat
-from memory.memory_manager import SlidingWindowMem
+from memory.memory_manager import TokenSlidingWindowMem
 
 
 class Cli:
     def __init__(self):
         self.current_chat: Chat = None
         self.chats: list[Chat] = []
-        self.default_config: AppConfig = load_config()
+        self.default_config: Config = load_config()
         self.commands = {
             "/resume": self._resume,
             "/clear": self._clear,
@@ -50,12 +49,12 @@ class Cli:
             self.current_chat = self.chats[val]
             break
         self._clear_screen_ansi()
-        self.current_chat.print_chat()
+        self.current_chat.print_history()
 
     def _new_chat(self):
         self.current_chat = Chat(
             self.default_config,
-            SlidingWindowMem(self.default_config.system_prompt, 10),
+            TokenSlidingWindowMem(self.default_config),
         )
         self.chats.append(self.current_chat)
 
@@ -71,7 +70,6 @@ class Cli:
         while True:
             if not self.current_chat:
                 self._new_chat()
-            # self.memory.print()
             try:
                 prompt = input("You: ").strip()
             except (KeyboardInterrupt, EOFError):
@@ -81,10 +79,5 @@ class Cli:
             if prompt.startswith("/"):
                 self._handle_command(prompt.lower())
                 continue
-            print(f"{self.current_chat.config.model}: ", end="")
-            reply = self.current_chat.send_prompt(prompt)
-            if not reply:
-                self.current_chat.memory.pop()
-                continue
-            self.current_chat.memory.add_msg(role=Role.ASSISTANT, content=reply)
+            self.current_chat.send_prompt(prompt)
             print()

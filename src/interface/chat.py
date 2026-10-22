@@ -1,12 +1,12 @@
 import openai
 
-from config import AppConfig
+from config import Config
 from custom_types.enums import Memory, Role
 from memory.memory_manager import MemoryManager
 
 
 class Chat:
-    def __init__(self, config: AppConfig, memory: MemoryManager):
+    def __init__(self, config: Config, memory: MemoryManager):
         self.memory = memory
         self.config = config
         self.id = ""
@@ -33,37 +33,41 @@ class Chat:
             if finish_reason == "length":
                 print(" [truncated]", end="")
 
-    def send_prompt(self, prompt: str, stream: bool = True) -> str:
-        if self.memory.add_msg(role=Role.USER, content=prompt):
-            self.id = prompt
-        messages = self.memory.get_msgs()
+    def _get_reply(self, messages: Memory, stream: bool) -> str:
         reply = ""
         try:
             if stream:
-                try:
-                    for content in self._stream_reply(messages):
-                        print(content, end="", flush=True)
-                        reply += content
-                    print()
-                except KeyboardInterrupt:
-                    print(" [interrupted]")
-                    if reply:
-                        reply += "\n\n[INTERRUPTED BY USER]"
+                for content in self._stream_reply(messages):
+                    print(content, end="", flush=True)
+                    reply += content
+                print()
             else:
-                try:
-                    content = self.config.complete(messages)
-                    reply = content.choices[0].message.content or ""
-                    print(reply)
-                except KeyboardInterrupt:
-                    print("[interrupted]")
+                content = self.config.complete(messages)
+                reply = content.choices[0].message.content or ""
+                print(reply)
+        except KeyboardInterrupt:
+            print(" [interrupted]")
+            if reply:
+                reply += "\n\n[INTERRUPTED BY USER]"
         except (openai.APIError, ValueError) as e:
             print(f"\nError: {e}")
         return reply
 
-    def print_chat(self):
-        for msg in self.memory.get_msgs():
+    def send_prompt(self, prompt: str, stream: bool = True):
+        reply = ""
+        if self.memory.add_msg(role=Role.USER, content=prompt):
+            self.id = prompt
+            print(f"{self.config.model}: ", end="")
+            reply = self._get_reply(self.memory.get_memory(), stream)
+        if not reply:
+            self.memory.pop()
+            return
+        self.memory.add_msg(role=Role.ASSISTANT, content=reply)
+        self.memory.add_to_history(prompt, reply)
+
+    def print_history(self):
+        for msg in self.memory.get_history():
             role, content = msg.values()
-            # print(f"MSG: {msg}\nROLE: {role}\nCONTENT: {content}")
             if role is Role.ASSISTANT:
                 print(f"{self.config.model}: {content}\n")
             elif role is Role.USER:
